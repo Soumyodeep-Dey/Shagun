@@ -2,6 +2,8 @@
 
 This implementation rejects live payment configuration. Completing this checklist requires a separately authorized project and code changes; do not replace test keys with live keys here.
 
+Acceptance update: implementation `bbd8103` now records restricted test-mode discrepancies, distinct verified captures and idempotent duplicate-capture incidents, with intended/extra amounts available for operator reconciliation. These test-mode safeguards do not establish provider approval, settlement, refund capability or live-money readiness. No automatic refund, payout, recipient onboarding or live adapter was added. The two-account mock gate is still blocked by missing connected configuration; see ACCEPTANCE-RUN.md.
+
 - Obtain written provider confirmation that the wedding-gifting use case is permitted and identify the correct acceptance/recipient-settlement product.
 - Design compliant recipient onboarding, eligibility checks, funds flow, settlement accounting and payout failure handling with the provider. Standard Checkout does not settle automatically to arbitrary couples.
 - Implement the approved live adapter, isolated credentials and provider account validation; add verified refund, dispute, reconciliation, support and duplicate-payment handling.

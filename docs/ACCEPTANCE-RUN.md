@@ -1,0 +1,40 @@
+# Executed acceptance evidence
+
+Run date: **15 November 2026**, Asia/Calcutta. Baseline reviewed: `d8c3408`. Tested implementation commit: **`bbd8103bf89458b3eae7af351a7726eae212bbcc`**. Reporting commits after it change documentation only; source and tests remain at this implementation revision.
+
+The current code matched the three baseline findings before fixes. There were no intervening application changes to assume away. The complete two-account mock release gate is **BLOCKED**, not passed.
+
+## Commands actually executed
+
+| Command                      | Actual final result                                  | Scope / evidence                                                                                                                                                                                                                                      |
+| ---------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint`               | PASS, no errors/warnings                             | ESLint over application and tests                                                                                                                                                                                                                     |
+| `npm run typecheck`          | PASS                                                 | Strict TypeScript, including connected suite                                                                                                                                                                                                          |
+| `npm test`                   | **91 passed, 5 skipped**, 7 files passed / 1 skipped | Logic, actual HTTP Route Handler dispatch, SQL/RLS, seed, capture ledger, discrepancy persistence, accounting. The 5 skipped tests are the independent PostgreSQL suite, executed separately below.                                                   |
+| `npm run test:postgres`      | **5 passed**                                         | Fresh disposable PostgreSQL 17 database, independent clients/backend PIDs, observed `pg_blocking_pids` lock wait, reversed capture arrival orders, callback/webhook race, slug race, and an actual injected mid-transaction failure followed by retry |
+| `npm run build`              | PASS                                                 | Production Webpack build, using three non-secret canaries in server-only configuration                                                                                                                                                                |
+| `npm run test:privacy`       | PASS, **47 client artifacts** scanned                | None contains service-role, Razorpay-secret or webhook-secret build canaries                                                                                                                                                                          |
+| `npm run test:browser:local` | **36 passed, 2 skipped**                             | Chromium desktop/mobile, production Next public routes and standalone production client components. The two skipped project invocations are one logical connected gate.                                                                               |
+| `npm run test:connected`     | **BLOCKED**, exit 2, **0 tests executed**            | Preflight records precise missing variables/settings in `artifacts/connected-blockers.json`                                                                                                                                                           |
+| `npm run test:clean`         | PASS                                                 | Fresh git archive of `bbd8103`, `npm ci --offline`, production build, loopback start, GET `/` and `/login` both 200; evidence in `artifacts/clean-checkout.json`                                                                                      |
+
+These execution counts are **not** acceptance-case counts. The supplied list has 84 acceptance IDs, each individually classified in [ACCEPTANCE-STATUS.md](ACCEPTANCE-STATUS.md): **64 scoped PASS, 0 FAIL, 1 NOT RUN, 19 BLOCKED**.
+
+## What the fixtures do and do not prove
+
+- `tests/http-acceptance.test.ts` sends real loopback HTTP requests into the actual production Route Handler functions, validation, services, limiter and payment transitions. Supabase transport is replaced by a PostgREST-shaped adapter executing real PGlite SQL; owner claims and provider lookup are fixtures. This is not a Next middleware/Auth-provider end-to-end test.
+- `tests/integrity.test.ts` executes the migration and RPCs in PGlite, including seed first/repeated runs, protected-record snapshots, rollback, exact accounting and migration backfill. Supabase-owned Auth/Storage prerequisites are stub schemas. These are sequential tests, **not concurrency evidence**.
+- `tests/concurrency.pg.test.ts` uses PostgreSQL 17 through separate `pg.Client` connections. Distinct backend PIDs and an observed lock wait prove actual overlapping transactions. The test runner creates and drops only a fresh local `shagun_test_*` database. It is still not Supabase Auth or provider delivery acceptance.
+- The local browser runner serves the **production Next build** against a mock public Supabase HTTP transport containing private-field canaries. It inspects HTML, real RSC responses and the public API. React text rendering, draft denial, zero-goal pages, invalid-goal denial, amount/envelope review, cancellation recovery and reduced motion are exercised.
+- Browser component fixtures bundle actual `WeddingEditor`, `ShareTools`, `ThankYouTool` and template source. Only the router and test transport are stubbed. The fixture is intercepted by Playwright and is **not an application route** or authentication bypass. It verifies field errors, the three-goal UI limit, keyboard use, actual clipboard text, downloaded PNG QR decoding and the encoded WhatsApp navigation. WhatsApp navigation is intercepted; no message is sent.
+- The clean-source smoke check installed dependencies from the lockfile and started the public pages without credentials. Next emitted a workspace-root warning because the temporary archive sits beneath the original checkout; the archive has its own source and independently installed dependencies. This check does not claim a fresh hosted Supabase deployment or connected setup.
+
+## Resolved failures and limitations
+
+BUILD-03, PAY-05 and PAY-18 now pass their documented local regressions. Review also uncovered mobile long-name grid overflow; normal pointer interaction failed. Wrapping/minimum grid sizing was corrected and all affected browser checks rerun successfully. Fixture-reset, cross-origin component delivery and mixed mobile/desktop viewport-state issues were corrected in the test harness rather than suppressed with forced clicks or disabled browser security.
+
+The draft denial check follows installed Next documentation: after streaming starts, a not-found page may retain status 200. Tests assert unavailable UI and absence of wedding data, while the public JSON endpoint must return 404. An HTTP 200 streamed error shell is not treated as a published wedding.
+
+One acceptance scenario remains **NOT RUN**: UX-11 controlled mobile/4G loading measurement against the 2-second target. No timing guarantee is claimed. The remaining **BLOCKED** IDs require real Supabase/Auth/Storage, actual Razorpay test-provider delivery, or physical devices as specified in the status matrix. CI is configured for the local suites; a GitHub-hosted run was not triggered or claimed.
+
+No live payments, public deployment, paid resources, automatic refunds or automated messages were enabled.

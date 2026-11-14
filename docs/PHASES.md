@@ -12,4 +12,12 @@
 | 8 · Testing/security | Vitest/PostgreSQL tests, Playwright desktop/mobile, CI, strict origin/validation, shared DB limiter                   | 31 tests + 16 browser checks passed; 2 connected cases skipped; screenshots inspected                                 |
 | 9 · Documentation    | README, architecture, acceptance evidence, live-launch checklist, environment/seed/deploy steps                       | Commands and documentation cross-checked against implementation; no public deployment                                 |
 
-The implementation is present across all phases. Credential-dependent verification is explicitly outstanding rather than replaced by a fabricated database, public login bypass, or claims of real payments.
+The table above records the original phase outputs. It is not a declaration that the acceptance gate passed. Current acceptance work is documented below and in ACCEPTANCE-STATUS.md.
+
+## Acceptance closure update — 15 November 2026
+
+Tested implementation: `bbd8103` (compared directly with audit baseline `d8c3408`). BUILD-03 now uses explicit demo identity plus atomic, non-overwriting seed writes. PAY-05 persists restricted mismatch evidence before rejection. PAY-18 retains distinct captures, idempotent extra-capture incidents and separate reconciliation amounts, without double-counting intended gifts or issuing refunds.
+
+Executed current checks: 91 local unit/HTTP/SQL regressions, five independent-connection PostgreSQL tests, 36 browser checks, lint, type checking, a production build, a 47-artifact client-secret scan and a fresh-archive install/build/start smoke test. Five PostgreSQL tests were skipped by the generic test command and then executed separately; two connected browser-project invocations remain skipped. Counts describe executions, not the 84 acceptance cases.
+
+The complete two-owner/anonymous-guest mock release gate is prepared but BLOCKED by absent local Supabase/test-account configuration. Real provider, real-device and live-launch work remain separate. Current case statuses: 64 scoped PASS, zero current FAIL, one NOT RUN (controlled 4G timing), 19 BLOCKED. No credentials, connected outcomes or real money were fabricated.

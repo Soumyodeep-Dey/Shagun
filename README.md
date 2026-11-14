@@ -2,6 +2,8 @@
 
 **Your blessings, their new beginning.** A private wedding wishlist and digital envelope MVP for Indian couples. Guests never sign in. All payments are explicitly mock or Razorpay **test** payments; no live payments or settlements are implemented.
 
+Acceptance update (15 November 2026): tested code `bbd8103` fixes the three reviewed seed/payment-integrity gaps. Actual checks: 91 local regressions, five independent-connection PostgreSQL tests, 36 browser checks, lint/type checking, production build, client-secret scan and clean-source startup. The 84 supplied acceptance IDs currently have **64 scoped PASS, 0 FAIL, 1 NOT RUN and 19 BLOCKED**; these are not test-execution counts. **The two-account mock release gate remains BLOCKED.** See [current evidence](docs/ACCEPTANCE-RUN.md), [every case](docs/ACCEPTANCE-STATUS.md) and [exact connected setup](docs/ACCEPTANCE.md).
+
 ## Start locally
 
 Requirements: Node.js 22 LTS, npm, and a Supabase project (hosted or local). A landing page, login screen and receipt error screen work without credentials; real wedding pages and payments deliberately require PostgreSQL.
