@@ -38,7 +38,7 @@ Do not commit `.env.local`. No credentials are shipped with this project. Settin
 
 ## Supabase migrations and storage
 
-Apply both SQL files in `supabase/migrations/` in filename order to a fresh Supabase project using the SQL editor, or with the Supabase CLI:
+Apply all three SQL files in `supabase/migrations/` in filename order to a fresh Supabase project using the SQL editor, or with the Supabase CLI:
 
 ```text
 supabase login
@@ -62,13 +62,13 @@ The migration also creates the public `wedding-photos` bucket, a 5 MB object lim
 
 ## Seed the demo
 
-Sign in or explicitly create a demo-owner Auth user in Supabase. Copy that user's UUID into `DEMO_OWNER_USER_ID`, then run:
+Create a dedicated demo-owner Auth user in Supabase. An operator must set that user's **app_metadata** to include `"shagun_demo": true` (user-editable user_metadata does not qualify). Copy the UUID into local `DEMO_OWNER_USER_ID`, then run:
 
 ```text
 npm run seed
 ```
 
-The repeatable script checks the user exists, upserts their profile, and seeds Aisha & Rahul at `/w/aisha-rahul`, 30 days after each seed run. Dreams are Honeymoon in Europe (private ₹3,00,000 target) and First Home (private ₹10,00,000 target). General Shagun is always enabled. No gifts or authentication bypasses are seeded. Re-running intentionally restores the demo profile/date/goals, so use a dedicated demo owner. Existing goal IDs cannot be reassigned to another owner.
+The script calls the restricted `seed_demo` RPC. It checks operator-controlled demo identity, the reserved slug and goal identities **before any writes**, locks the seed slot, and commits profile/goals together. Existing unmarked weddings are rejected even if their Auth owner is flagged. No old profile is adopted automatically. First run creates a database demo marker; repeat runs require that marker and preserve IDs. The date is 30 days after the seed run in Asia/Kolkata. Targets remain ₹3,00,000 and ₹10,00,000. Goal errors roll back profile writes. A pre-migration demo without a marker is intentionally refused: use an isolated fresh demo owner/project or have an operator investigate legacy demo records; never mark a real wedding as a demo merely to bypass this guard.
 
 ## Payments
 
@@ -115,7 +115,7 @@ npx playwright install chromium
 npm run test:e2e -- --workers=2
 ```
 
-Implementation-session results (14 November 2026):
+Historical implementation-session results (14 November 2026; superseded by [current acceptance evidence](docs/ACCEPTANCE-RUN.md)):
 
 | Check                                                | Actual result                                      |
 | ---------------------------------------------------- | -------------------------------------------------- |
@@ -131,12 +131,12 @@ Implementation-session results (14 November 2026):
 
 The PostgreSQL tests run the actual migration and functions in PGlite, a local embedded PostgreSQL engine. They stub only Supabase-owned Auth/Storage schema prerequisites and skip the extension-install statement because `gen_random_uuid()` is built in. These tests exercise real SQL constraints, RLS, privileges, transactional RPCs, retries, event replay, archived goals, thanked status and shared counters. They do not verify Supabase's network, Auth service, Storage service, extensions or concurrent multi-connection behavior.
 
-Browser receipt-state tests deliberately stub receipt responses; they verify rendering, motion preference, and success-query rejection. They do **not** prove external payment success. The optional connected browser test covers a seeded guest flow, retry, persisted receipt reload and a second browser with the same scoped token:
+Browser receipt-state tests deliberately stub receipt responses; they do **not** prove provider acceptance. The connected suite now covers two supported Auth sessions, onboarding/publication, an anonymous mock gift, the owner dashboard, a new session, RLS/API ownership rejection, public HTML/RSC/API privacy and persistent thanked status:
 
 ```powershell
-# After migrating, configuring Auth, seeding, and running in mock mode:
-$env:E2E_CONNECTED='1'
-npm run test:e2e -- --workers=1
+# Configure local .env.local and .env.e2e.local using docs/ACCEPTANCE.md.
+# Use two dedicated confirmed Auth users without existing wedding profiles.
+npm run test:connected
 # Optional hosted/local Supabase anonymous-permission smoke test:
 npm run test:db
 ```

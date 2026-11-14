@@ -12,6 +12,7 @@ import {
 import { razorpay } from "@/lib/payments/razorpay";
 import { HttpError } from "@/server/http";
 import type { PaymentStatus, PaymentMode } from "@/lib/types";
+import { assertPaymentMatches, recordDiscrepancies } from "./discrepancies";
 type Attempt = {
   id: string;
   contribution_id: string;
@@ -61,7 +62,14 @@ export async function createOrder(raw: unknown) {
   const input = giftSchema.parse(raw),
     mode = paymentMode(),
     { min, max } = limits();
-  validateAmount(input.amount_paise, min, max);
+  try {
+    validateAmount(input.amount_paise, min, max);
+  } catch {
+    throw new HttpError(
+      400,
+      "Amount is outside the allowed contribution range.",
+    );
+  }
   const { receipt_token, request_key, attempt_key, ...details } = input;
   const fingerprint = createHash("sha256")
     .update(JSON.stringify({ ...details, mode }))
@@ -121,8 +129,43 @@ export async function createOrder(raw: unknown) {
         order.amount !== result.amount_paise ||
         order.currency !== "INR" ||
         !order.id.startsWith("order_")
-      )
+      ) {
+        await recordDiscrepancies(
+          result.attempt_id,
+          "order",
+          [
+            ...(order.amount !== result.amount_paise
+              ? [
+                  {
+                    field: "amount" as const,
+                    expected: String(result.amount_paise),
+                    observed: String(order.amount),
+                  },
+                ]
+              : []),
+            ...(order.currency !== "INR"
+              ? [
+                  {
+                    field: "currency" as const,
+                    expected: "INR",
+                    observed: String(order.currency),
+                  },
+                ]
+              : []),
+            ...(!order.id.startsWith("order_")
+              ? [
+                  {
+                    field: "order_id" as const,
+                    expected: "order_*",
+                    observed: String(order.id),
+                  },
+                ]
+              : []),
+          ],
+          { order_id: order.id },
+        );
         throw new HttpError(502, "Provider order did not match.");
+      }
       const { error: oe } = await db
         .from("payment_attempts")
         .update({ provider_order_id: order.id })
@@ -167,8 +210,24 @@ export async function verifyCallback(input: {
     attempt.provider !== "razorpay_test" ||
     !attempt.provider_order_id ||
     attempt.provider_order_id !== input.razorpay_order_id
-  )
+  ) {
+    await recordDiscrepancies(
+      attempt.id,
+      "callback",
+      [
+        {
+          field: "order_id",
+          expected: String(attempt.provider_order_id),
+          observed: input.razorpay_order_id,
+        },
+      ],
+      {
+        payment_id: input.razorpay_payment_id,
+        order_id: input.razorpay_order_id,
+      },
+    );
     throw new HttpError(400, "Order mismatch.");
+  }
   if (
     !validSignature(
       `${attempt.provider_order_id}|${input.razorpay_payment_id}`,
@@ -180,13 +239,7 @@ export async function verifyCallback(input: {
   const p = await razorpay<ProviderPayment>(
     `payments/${encodeURIComponent(input.razorpay_payment_id)}`,
   );
-  if (
-    p.id !== input.razorpay_payment_id ||
-    p.order_id !== attempt.provider_order_id ||
-    p.amount !== attempt.amount_paise ||
-    p.currency !== "INR"
-  )
-    throw new HttpError(400, "Payment does not match the stored order.");
+  await assertPaymentMatches(attempt, p, input.razorpay_payment_id, "callback");
   if (capturedPayment(p, attempt.provider_order_id, attempt.amount_paise))
     await transition(attempt, "succeeded", p.id);
   else if (p.status === "failed") await transition(attempt, "failed", p.id);

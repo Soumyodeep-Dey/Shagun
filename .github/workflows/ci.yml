@@ -3,6 +3,15 @@ on: [push, pull_request]
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: shagun_test
+          POSTGRES_PASSWORD: ephemeral_test_only
+        ports:
+          - 5432:5432
+        options: --health-cmd "pg_isready -U shagun_test" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -13,9 +22,17 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:postgres
+        env:
+          TEST_PG_ADMIN_URL: postgres://shagun_test:ephemeral_test_only@127.0.0.1:5432/postgres
       - run: npm run build
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: SHAGUN_SERVICE_ROLE_BUNDLE_CANARY
+          RAZORPAY_KEY_SECRET: SHAGUN_RAZORPAY_SECRET_BUNDLE_CANARY
+          RAZORPAY_WEBHOOK_SECRET: SHAGUN_WEBHOOK_SECRET_BUNDLE_CANARY
+      - run: npm run test:privacy
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: npm run test:browser:local
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

@@ -41,6 +41,15 @@ beforeAll(async () => {
     ),
   );
   await db.exec(
+    "alter table auth.users add column raw_app_meta_data jsonb not null default '{}'::jsonb;",
+  );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202611140003_acceptance_integrity.sql",
+      "utf8",
+    ),
+  );
+  await db.exec(
     `set role authenticated;select set_config('request.jwt.claim.sub','${owner}',false);`,
   );
   const r = await db.query<{ id: string }>(

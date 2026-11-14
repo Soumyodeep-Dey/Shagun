@@ -11,6 +11,7 @@ import {
 import { razorpay } from "@/lib/payments/razorpay";
 import { apiError, HttpError } from "@/server/http";
 import { transition } from "@/server/services/payments";
+import { assertPaymentMatches } from "@/server/services/discrepancies";
 const payload = z.object({
   event: z.string(),
   payload: z.object({
@@ -69,13 +70,7 @@ export async function POST(req: Request) {
     const p = await razorpay<ProviderPayment>(
       `payments/${encodeURIComponent(entity.id)}`,
     );
-    if (
-      p.id !== entity.id ||
-      p.order_id !== a.provider_order_id ||
-      p.amount !== a.amount_paise ||
-      p.currency !== "INR"
-    )
-      throw new HttpError(400, "Payment mismatch.");
+    await assertPaymentMatches(a, p, entity.id, "webhook");
     const status = capturedPayment(p, a.provider_order_id, a.amount_paise)
       ? "succeeded"
       : p.status === "failed"

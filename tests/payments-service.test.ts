@@ -13,6 +13,7 @@ vi.mock("@/lib/supabase/admin", () => ({
     rpc: mocks.rpc,
     from: (table: string) => {
       const builder = {
+        upsert: async () => ({ error: null }),
         select: () => builder,
         eq: () => builder,
         order: () => builder,
